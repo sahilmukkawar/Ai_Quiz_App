@@ -1,6 +1,7 @@
 import express from 'express';
 import auth from '../middleware/auth.js';
 import User from '../models/User.js';
+import bcrypt from 'bcryptjs';
 
 const router = express.Router();
 
@@ -16,7 +17,7 @@ router.get('/me', auth, async (req, res) => {
 // Update user profile
 router.patch('/me', auth, async (req, res) => {
   const updates = Object.keys(req.body);
-  const allowedUpdates = ['name', 'password'];
+  const allowedUpdates = ['name', 'currentPassword', 'password'];
   const isValidOperation = updates.every(update => allowedUpdates.includes(update));
 
   if (!isValidOperation) {
@@ -24,36 +25,66 @@ router.patch('/me', auth, async (req, res) => {
   }
 
   try {
-    // If updating password, verify current password first
-    if (updates.includes('password')) {
+    // If updating password
+    if (updates.includes('password') || updates.includes('currentPassword')) {
       const { currentPassword, password } = req.body;
 
       if (!currentPassword) {
         return res.status(400).json({ message: 'Current password is required' });
       }
 
-      const isMatch = await req.user.comparePassword(currentPassword);
+      if (!password) {
+        return res.status(400).json({ message: 'New password is required' });
+      }
+
+      if (password.length < 6) {
+        return res.status(400).json({ message: 'New password must be at least 6 characters' });
+      }
+
+      // Get the complete user with password from database
+      const userWithPassword = await User.findById(req.user._id);
+
+      if (!userWithPassword) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      // Verify current password
+      const isMatch = await userWithPassword.comparePassword(currentPassword);
       if (!isMatch) {
         return res.status(401).json({ message: 'Current password is incorrect' });
       }
 
-      req.user.password = password;
+      // Hash the new password
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+
+      // Update password
+      await User.findByIdAndUpdate(req.user._id, { password: hashedPassword });
+
+      // Return success message
+      return res.json({
+        message: 'Password updated successfully',
+        name: userWithPassword.name
+      });
     }
 
-    // Update other fields
+    // Update name if provided
     if (updates.includes('name')) {
-      req.user.name = req.body.name;
+      const updatedUser = await User.findByIdAndUpdate(
+        req.user._id,
+        { name: req.body.name },
+        { new: true }
+      ).select('-password');
+
+      return res.json(updatedUser);
     }
 
-    await req.user.save();
+    // If we get here with no valid updates
+    return res.status(400).json({ message: 'No valid updates provided' });
 
-    // Return user without password
-    const userObject = req.user.toObject();
-    delete userObject.password;
-
-    res.json(userObject);
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error('Update error:', error);
+    res.status(400).json({ message: error.message || 'Failed to update user' });
   }
 });
 

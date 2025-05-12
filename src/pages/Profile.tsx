@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import { useState, FormEvent } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useQuiz } from '../contexts/QuizContext';
 import { User, Mail, Lock, Trash2, AlertCircle } from 'lucide-react';
 import api from '../config/axios';
 
-const Profile: React.FC = () => {
+const Profile = () => {
   const { user, logout } = useAuth();
   const { userQuizzes, quizResults } = useQuiz();
   
@@ -14,9 +14,10 @@ const Profile: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [updateSuccess, setUpdateSuccess] = useState(false);
   const [updateError, setUpdateError] = useState('');
+  const [passwordUpdateSuccess, setPasswordUpdateSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handleUpdateProfile = async (e: React.FormEvent) => {
+  const handleUpdateProfile = async (e: FormEvent) => {
     e.preventDefault();
     setUpdateSuccess(false);
     setUpdateError('');
@@ -36,18 +37,23 @@ const Profile: React.FC = () => {
     }
   };
 
-  const handleUpdatePassword = async (e: React.FormEvent) => {
+  const handleUpdatePassword = async (e: FormEvent) => {
     e.preventDefault();
-    setUpdateSuccess(false);
+    setPasswordUpdateSuccess(false);
     setUpdateError('');
     
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setUpdateError('All password fields are required');
+      return;
+    }
+    
     if (newPassword !== confirmPassword) {
-      setUpdateError('Passwords do not match');
+      setUpdateError('New passwords do not match');
       return;
     }
     
     if (newPassword.length < 6) {
-      setUpdateError('Password must be at least 6 characters');
+      setUpdateError('New password must be at least 6 characters');
       return;
     }
     
@@ -58,12 +64,14 @@ const Profile: React.FC = () => {
         password: newPassword
       });
       
-      setUpdateSuccess(true);
+      setPasswordUpdateSuccess(true);
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
+      setUpdateError('');
     } catch (err: any) {
-      setUpdateError(err.response?.data?.message || 'Failed to update password');
+      console.error('Password update error:', err);
+      setUpdateError(err.response?.data?.message || 'Failed to update password. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -200,6 +208,18 @@ const Profile: React.FC = () => {
             <div className="bg-white rounded-lg shadow-sm p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Change Password</h2>
               
+              {passwordUpdateSuccess && (
+                <div className="mb-4 bg-green-50 border-l-4 border-green-500 p-4">
+                  <div className="flex">
+                    <div className="ml-3">
+                      <p className="text-sm text-green-700">
+                        Your password has been updated successfully.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               {updateError && (
                 <div className="mb-4 bg-red-50 border-l-4 border-red-500 p-4">
                   <div className="flex">
@@ -272,9 +292,10 @@ const Profile: React.FC = () => {
                   <div className="pt-2">
                     <button
                       type="submit"
-                      className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                      disabled={loading}
+                      className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400"
                     >
-                      Update Password
+                      {loading ? 'Updating...' : 'Update Password'}
                     </button>
                   </div>
                 </div>
