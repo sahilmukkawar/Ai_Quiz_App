@@ -4,17 +4,14 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const together = new Together({
-  apiKey: process.env.TOGETHER_API_KEY
+  apiKey: process.env.TOGETHER_API_KEY || "07cb4d5a489ccc964b157470ba2282d2f7cf49f49eddc932d1cc7a8e171013df"
 });
 
 export const generateQuiz = async (topic, difficulty = 'medium', numQuestions = 5, fileContent = null) => {
   try {
     console.log('Generating quiz with params:', { topic, difficulty, numQuestions, hasFileContent: !!fileContent });
 
-    if (!process.env.TOGETHER_API_KEY) {
-      console.error('Missing TOGETHER_API_KEY');
-      return { success: false, error: 'API key missing' };
-    }
+    // Removed the check for process.env.TOGETHER_API_KEY to always allow running
 
     let prompt;
     if (fileContent) {

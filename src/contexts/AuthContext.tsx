@@ -30,6 +30,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
+      // Set default authorization header from localStorage
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       // Verify token and get user data
       api.get('/auth/me')
         .then(response => {
@@ -38,6 +40,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         })
         .catch(() => {
           localStorage.removeItem('token');
+          delete api.defaults.headers.common['Authorization'];
           setUser(null);
           setIsAuthenticated(false);
         });
